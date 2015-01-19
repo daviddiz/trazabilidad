@@ -15,7 +15,7 @@ TrazabilidadScreen:
 		    	rows: 10
                 	
 		BoxLayout:
-			orientation: 'vertical'
+			orientation: 'horizontal'
 			id: tr
 			
 			Button:
@@ -34,7 +34,7 @@ TrazabilidadScreen:
 		        
 		        BoxLayout:
 		            id: popupcontent
-		            orientation: 'vertical'
+		            orientation: 'horizontal'
 		            
 		        	GridLayout:
 		        		cols: 2
@@ -63,16 +63,15 @@ TrazabilidadScreen:
 					    Label:
 					        text: '\\n'.join(map(repr, detector.symbols))
 					        size_hint_y: None
+					        id: txt_codigo
 					
-					    BoxLayout:
-					        size_hint_y: None
-					
-					        Button:
-					            text: 'Scan a qrcode'
-					            on_release: detector.start()
-					        Button:
-					            text: 'Stop detection'
-					            on_release: detector.stop()
+					    
+				        Button:
+				            text: 'Scan a qrcode'
+				            on_release: detector.start()
+				        Button:
+				            text: 'Stop detection'
+				            on_release: detector.stop()
 		            
 		            	Button:
 				            text: "Insertar"
