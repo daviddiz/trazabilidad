@@ -29,7 +29,7 @@ source.exclude_dirs = tests, bin
 #version.filename = %(source.dir)s/main.py
 
 # (str) Application versioning (method 2)
-version = 2.0.3
+version = 2.0.6
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
