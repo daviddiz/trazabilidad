@@ -15,6 +15,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.label import Label
 from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.floatlayout import FloatLayout
 from functools import partial
 from kivy.core.window import Window
 from kivy.uix.button import Button
@@ -540,7 +541,7 @@ class DataGridIn(GridLayout):
         sel = cursor.fetchall()
         self.rows = len(sel) + 1
         for product in sel:
-            self.add_row([product[0], product[1], product[2]],
+            self.add_row_in([product[0], product[1], product[2]],
                           ["center", "center", "center"], [0.4, 0.45, 0.15])
 
 
@@ -710,7 +711,7 @@ class DataGridOut(GridLayout):
     def __init__(self, **kwargs):
         header_data = ['Producto', 'Código', 'Cantidad']
         cols_size = [0.4, 0.45, 0.15]
-        super(DataGridIn, self).__init__(**kwargs)
+        super(DataGridOut, self).__init__(**kwargs)
         self.size_hint_y=None
         self.bind(minimum_height=self.setter('height'))
         self.cols = len(header_data)
@@ -730,9 +731,30 @@ class DataGridOut(GridLayout):
         sel = cursor.fetchall()
         self.rows = len(sel) + 1
         for product in sel:
-            self.add_row([product[0], product[1], product[2]],
+            self.add_row_out([product[0], product[1], product[2]],
                           ["center", "center", "center"], [0.4, 0.45, 0.15])
 
+class TestCon(FloatLayout):
+    def connect(self):
+        protocol= 'xmlrpc'
+        port=8069
+        
+        cursor.execute("""SELECT * FROM connect""")
+        connection_data = cursor.fetchone()
+         
+        host = connection_data[0]
+        dbname = connection_data[1]
+        username = connection_data[2]
+        pwd = connection_data[3]
+        
+        
+        try:  
+            oerp = oerplib.OERP(host, dbname, protocol, port)
+            user = oerp.login(username, pwd)
+        except:
+            self.children[0].text = 'Error de Conexión'
+            return False
+        self.children[0].text = 'Conexión Correcta'
 
 class TrazabilidadScreen(Screen):
     fullscreen = BooleanProperty(False)

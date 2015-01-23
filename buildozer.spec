@@ -29,7 +29,7 @@ source.exclude_dirs = tests, bin
 #version.filename = %(source.dir)s/main.py
 
 # (str) Application versioning (method 2)
-version = 2.1.1
+version = 2.2.2
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
@@ -81,7 +81,7 @@ android.ndk_path = /home/ddiz/android-ndk32
 android.sdk_path = /home/ddiz/android-sdk32
 
 # (str) python-for-android git clone directory (if empty, it will be automatically cloned from github)
-#android.p4a_dir =
+android.p4a_dir = /home/ddiz/Descargas/python-for-android
 
 # (list) python-for-android whitelist
 #android.p4a_whitelist =
@@ -147,7 +147,7 @@ android.add_libs_armeabi = libs/android/*.so
 [buildozer]
 
 # (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
-log_level = 2
+log_level = 0
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1

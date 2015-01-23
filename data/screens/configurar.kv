@@ -11,14 +11,14 @@ TrazabilidadScreen:
     	spacing: 10
 
 		Label:
-			size_hint: .8, .1
+			size_hint: .2, .1
 			pos_hint: {'x': .1, 'y': .9}
 			text: 'Servidor'
 
 	    TextInput:
 	        id: ti_default
-	        size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .8}
+	        size_hint: .6, .1
+			pos_hint: {'x': .3, 'y': .9}
 	        multiline: False
 	        text: root.url
 	        focus: True
@@ -29,13 +29,13 @@ TrazabilidadScreen:
     	spacing: 10
 
 		Label:
-			size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .7}
+			size_hint: .2, .1
+			pos_hint: {'x': .1, 'y': .8}
 			text: 'Base de datos'	  
 
 		TextInput:
-	        size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .6}
+	        size_hint: .6, .1
+			pos_hint: {'x': .3, 'y': .8}
 	        multiline: False
 	        text: root.db
 	        on_text: app.change_bd(self.text)
@@ -45,13 +45,13 @@ TrazabilidadScreen:
     	spacing: 10
 
 		Label:
-			size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .5}
+			size_hint: .2, .1
+			pos_hint: {'x': .1, 'y': .7}
 			text: 'Usuario'
 
 		TextInput:
-	        size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .4}
+	        size_hint: .6, .1
+			pos_hint: {'x': .3, 'y': .7}
 	        multiline: False
 	        text: root.user
 	        on_text: app.change_user(self.text)
@@ -61,16 +61,31 @@ TrazabilidadScreen:
     	spacing: 10
 
 		Label:
-			size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .3}
+			size_hint: .2, .1
+			pos_hint: {'x': .1, 'y': .6}
 			text: 'Contraseña'
 
 	    TextInput:
-	        size_hint: .8, .1
-			pos_hint: {'x': .1, 'y': .2}
+	        size_hint: .6, .1
+			pos_hint: {'x': .3, 'y': .6}
 	        text: root.pwd
 	        multiline: False
 	        password: True
 	        on_text: app.change_pwd(self.text)
+	        
+	TestCon:
+		id: con
+		padding: 20
+    	spacing: 10
 
-	
+		Button:
+			size_hint: .8, .1
+			pos_hint: {'x': .1, 'y': .5}
+			text: 'Probar Conexión'
+			on_press: con.connect()
+			
+		Label:
+			size_hint: .8, .1
+			pos_hint: {'x': .1, 'y': .4}
+			text: ''
+		    id: result_conex
