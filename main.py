@@ -540,7 +540,7 @@ class DataGridIn(GridLayout):
         sel = cursor.fetchall()
         self.rows = len(sel) + 1
         for product in sel:
-            self.add_row([product[0], product[1], product[2]],
+            self.add_row_in([product[0], product[1], product[2]],
                           ["center", "center", "center"], [0.4, 0.45, 0.15])
 
 
@@ -730,7 +730,7 @@ class DataGridOut(GridLayout):
         sel = cursor.fetchall()
         self.rows = len(sel) + 1
         for product in sel:
-            self.add_row([product[0], product[1], product[2]],
+            self.add_row_out([product[0], product[1], product[2]],
                           ["center", "center", "center"], [0.4, 0.45, 0.15])
 
 
