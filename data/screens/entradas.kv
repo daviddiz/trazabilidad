@@ -10,8 +10,8 @@ TrazabilidadScreen:
 			size_hint: .8, 1
 			pos_hint: {'x': .0, 'y': .0}
 		
-			DataGrid:
-				id: grid
+			DataGridIn:
+				id: grid_in
 		    	rows: 10
                 	
 		BoxLayout:
@@ -21,7 +21,7 @@ TrazabilidadScreen:
 			Button:
 				size_hint: .2, .1
 				pos_hint: {'x':.8, 'y':.8}
-				text: 'Añadir Registro'
+				text: 'Añadir'
 				on_release: root.popup.open()
 				
 		    Popup:
@@ -53,9 +53,7 @@ TrazabilidadScreen:
 		        		TextInput:
 		        			id: txt_cantidad
 		        			multiline: False
-		        			on_text_validate: grid.validate_cant(txt_cantidad.text)
-		        			
-
+		        			txt: "1"
 	        			
 					    ZbarQrcodeDetector:
 					        id: detector
@@ -67,15 +65,15 @@ TrazabilidadScreen:
 					
 					    
 				        Button:
-				            text: 'Scan a qrcode'
+				            text: 'Escanear Código QR'
 				            on_release: detector.start()
 				        Button:
-				            text: 'Stop detection'
+				            text: 'Detener Escaneo'
 				            on_release: detector.stop()
 		            
 		            	Button:
 				            text: "Insertar"
-				            on_press: grid.insert(txt_producto.text, txt_cantidad.text, txt_codigo.text, ty="in")
+				            on_press: grid_in.insert_in(txt_producto.text, txt_cantidad.text, txt_codigo.text)
 				            on_release: popup.dismiss()
 				            
 				        Button:
@@ -86,11 +84,11 @@ TrazabilidadScreen:
 			Button:
 				size_hint: .2, .1
 				pos_hint: {'x':.8, 'y':.6}
-				text: 'Borrar Registro'
-				on_press: grid.remove_row()
+				text: 'Borrar'
+				on_press: grid_in.remove_row_in()
 				
 			Button:
 				size_hint: .2, .1
 				pos_hint: {'x':.8, 'y':.4}
-				text: 'Exportar al Servidor'
-				on_press: grid.export()
+				text: 'Exportar'
+				on_press: grid_in.export_in()

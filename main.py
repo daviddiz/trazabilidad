@@ -9,8 +9,8 @@ kivy.require('1.8.0')
 from kivy.app import App
 from os.path import dirname, join
 from kivy.lang import Builder
-from kivy.properties import NumericProperty, StringProperty, BooleanProperty,\
-    ListProperty, ObjectProperty
+from kivy.properties import NumericProperty, StringProperty,\
+    BooleanProperty, ListProperty, ObjectProperty
 from kivy.uix.screenmanager import Screen
 from kivy.uix.label import Label
 from kivy.uix.togglebutton import ToggleButton
@@ -22,8 +22,6 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.popup import Popup
 import locale
-
-
 from collections import namedtuple
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
@@ -31,7 +29,7 @@ from kivy.graphics import Color, Line
 from jnius import autoclass, PythonJavaClass, java_method, cast
 from android.runnable import run_on_ui_thread
  
-# preload java classes
+# precarga de clases java
 System = autoclass('java.lang.System')
 System.loadLibrary('iconv')
 PythonActivity = autoclass('org.renpy.android.PythonActivity')
@@ -47,7 +45,8 @@ Symbol = autoclass('net.sourceforge.zbar.Symbol')
  
  
 class PreviewCallback(PythonJavaClass):
-    '''Interface used to get back the preview frame of the Android Camera
+    '''Interfaz para recuperar el marco de vista previa
+     de la cámara Android
     '''
     __javainterfaces__ = ('android.hardware.Camera$PreviewCallback', )
  
@@ -61,8 +60,8 @@ class PreviewCallback(PythonJavaClass):
  
  
 class SurfaceHolderCallback(PythonJavaClass):
-    '''Interface used to know exactly when the Surface used for the Android
-    Camera will be created and changed.
+    '''Interfaz para saber exactamente cuando la superficie
+     utilizada para la cámara Android se ha creado y modificado.
     '''
  
     __javainterfaces__ = ('android.view.SurfaceHolder$Callback', )
@@ -85,19 +84,20 @@ class SurfaceHolderCallback(PythonJavaClass):
  
  
 class AndroidWidgetHolder(Widget):
-    '''Act as a placeholder for an Android widget.
-    It will automatically add / remove the android view depending if the widget
-    view is set or not. The android view will act as an overlay, so any graphics
-    instruction in this area will be covered by the overlay.
+    '''Actúa como un marcador de posición para un widget Android.
+     Se añadirá / quitará  automáticamente la vista android
+     dependiendo si el widget de vista se activa o no. 
+     La vista android actuará como una superposición, 
+     por lo que cualquier instrucción gráfica en esta área
+     será cubierta por la superposición.
     '''
  
     view = ObjectProperty(allownone=True)
-    '''Must be an Android View
+    '''Debe ser una vista Android
     '''
  
     def __init__(self, **kwargs):
         self._old_view = None
-        from kivy.core.window import Window
         self._window = Window
         kwargs['size_hint'] = (None, None)
         super(AndroidWidgetHolder, self).__init__(**kwargs)
@@ -136,7 +136,7 @@ class AndroidWidgetHolder(Widget):
  
  
 class AndroidCamera(Widget):
-    '''Widget for controling an Android Camera.
+    '''Widget para controlar la cámara Android.
     '''
  
     index = NumericProperty(0)
@@ -166,47 +166,51 @@ class AndroidCamera(Widget):
  
         self._android_camera = Camera.open(self.index)
  
-        # create a fake surfaceview to get the previewCallback working.
+        # crear una superficie falsa para cargar la previewCallback.
         self._android_surface = SurfaceView(PythonActivity.mActivity)
         surface_holder = self._android_surface.getHolder()
  
-        # create our own surface holder to correctly call the next method when
-        # the surface is ready
+        # crear nuestra propia superficie de soporte para llamar
+        # correctamente al siguiente método
+        # cuando la superficie esté lista
         self._android_surface_cb = SurfaceHolderCallback(self._on_surface_changed)
         surface_holder.addCallback(self._android_surface_cb)
  
-        # attach the android surfaceview to our android widget holder
+        # adjuntar la superficie android al widget soporte
         self._holder.view = self._android_surface
  
     def _on_surface_changed(self, fmt, width, height):
-        # internal, called when the android SurfaceView is ready
-        # FIXME if the size is not handled by the camera, it will failed.
+        # internamente, se llama cuando la superficie android
+        # (SurfaceView) está preparada
+        # ARREGLAR si el tamaño no lo soporta la cámara va a fallar
         params = self._android_camera.getParameters()
         params.setPreviewSize(width, height)
         self._android_camera.setParameters(params)
  
-        # now that we know the camera size, we'll create 2 buffers for faster
-        # result (using Callback buffer approach, as described in Camera android
-        # documentation)
-        # it also reduce the GC collection
+        # ahora que ya sé el tamaño de la cámara,
+        # crearé dos buffers para acelerar el resultado
+        # (usaré el Callback buffer tal y como está descrito en la
+        # documentación de la cámara android)
+        # también reduce la colección GC
         bpp = ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8.
         buf = '\x00' * int(width * height * bpp)
         self._android_camera.addCallbackBuffer(buf)
         self._android_camera.addCallbackBuffer(buf)
  
-        # create a PreviewCallback to get back the onPreviewFrame into python
+        # crear un PreviewCallback para obtener el
+        # onPreviewFrame en python
         self._previewCallback = PreviewCallback(self._on_preview_frame)
  
-        # connect everything and start the preview
+        # conectar todo y empezar a previsualizar
         self._android_camera.setPreviewCallbackWithBuffer(self._previewCallback);
         self._android_camera.setPreviewDisplay(self._android_surface.getHolder())
         self._android_camera.startPreview();
  
     def _on_preview_frame(self, camera, data):
-        # internal, called by the PreviewCallback when onPreviewFrame is
-        # received
+        # internamente, se llama desde la PreviewCallback
+        # cuando el onPreviewFrame es recibido
         self.dispatch('on_preview_frame', camera, data)
-        # reintroduce the data buffer into the queue
+        # reintroduce los datos del buffer en la cola
         self._android_camera.addCallbackBuffer(data)
  
     def on_preview_frame(self, camera, data):
@@ -222,14 +226,15 @@ class AndroidCamera(Widget):
  
  
 class ZbarQrcodeDetector(AnchorLayout):
-    '''Widget that use the AndroidCamera and zbar to detect qrcode.
-    When found, the `symbols` will be updated
+    '''Widget que utiliza la cámara Android y ZBar 
+    para detectar el código qr. Cuando lo encuentra,
+    se actualiza `symbols`
     '''
-    camera_size = ListProperty([320, 240])
+    camera_size = ListProperty([640, 480])
  
     symbols = ListProperty([])
  
-    # XXX can't work now, due to overlay.
+    # no puede funcionar ahora, debido a la superposición.
     show_bounds = BooleanProperty(False)
  
     Qrcode = namedtuple('Qrcode',
@@ -243,7 +248,7 @@ class ZbarQrcodeDetector(AnchorLayout):
         self._camera.bind(on_preview_frame=self._detect_qrcode_frame)
         self.add_widget(self._camera)
  
-        # create a scanner used for detecting qrcode
+        # crear un escaner y usarlo para detectar el código qr
         self._scanner = ImageScanner()
         self._scanner.setConfig(0, Config.ENABLE, 0)
         self._scanner.setConfig(Symbol.QRCODE, Config.ENABLE, 1)
@@ -257,9 +262,10 @@ class ZbarQrcodeDetector(AnchorLayout):
         self._camera.stop()
  
     def _detect_qrcode_frame(self, instance, camera, data):
-        # the image we got by default from a camera is using the NV21 format
-        # zbar only allow Y800/GREY image, so we first need to convert,
-        # then start the detection on the image
+        # la imagen que obtenemos desde la cámara usa el formato NV21
+        # zbar sólo acepta imágenes Y800/GREY, así que primero hago 
+        # la conversión,
+        # después comienzo la detección en la imagen
         parameters = camera.getParameters()
         size = parameters.getPreviewSize()
         barcode = Image(size.width, size.height, 'NV21')
@@ -272,7 +278,7 @@ class ZbarQrcodeDetector(AnchorLayout):
             self.symbols = []
             return
  
-        # we detected qrcode! extract and dispatch them
+        # we detected qrcode! extraerlo y enviarlo
         symbols = []
         it = barcode.getSymbols().iterator()
         while it.hasNext():
@@ -288,7 +294,7 @@ class ZbarQrcodeDetector(AnchorLayout):
         self.symbols = symbols
  
     '''
-    # can't work, due to the overlay.
+    # no puede funcionar ahora, debido a la superposición.
     def on_symbols(self, instance, value):
         if self.show_bounds:
             self.update_bounds()
@@ -305,12 +311,9 @@ class ZbarQrcodeDetector(AnchorLayout):
                 y = self._camera.top - y - h
                 Line(rectangle=[x, y, w, h], group='bounds')
     '''
+
+# compruebo si existe la base de datos y si no existe, la creo
  
-
-
-
-
-
 db_filename = 'trazabilidad.db'
 
 db_is_new = not os.path.exists(db_filename)
@@ -326,7 +329,7 @@ if db_is_new:
     conn.commit()
 
 Builder.load_string('''
-# define how clabel looks and behaves
+# defino la vista y el comportamiento de las celdas de las tablas
 <CLabel>:
   canvas.before:
     Color:
@@ -346,23 +349,21 @@ Builder.load_string('''
 )
 
 class CLabel(ToggleButton):
-    bgcolor = ListProperty([1,1,1,1])
+    bgcolor = ListProperty([1,1,1])
 
 class HeaderLabel(Label):
-    bgcolor = ListProperty([0.611,0.411,0.276,0.276])
+    bgcolor = ListProperty([0.611,0.411,0.276])
     
-counter = 0
-class DataGrid(GridLayout):
-    def add_row(self, row_data, row_align, cols_size, **kwargs):
-        global counter
+counter_in = 0
+class DataGridIn(GridLayout):
+    # Añadir movimiento de entrada
+    def add_row_in(self, row_data, row_align, cols_size, **kwargs):
+        global counter_in
 
-        ##########################################################
-        def change_on_press(self):
+        def change_on_press_in(self):
             childs = self.parent.children
             for ch in childs:
                 if ch.id == self.id:
-#                     print ch.id
-#                     print len(ch.id)
                     row_n = 0
                     if len(ch.id) == 11:
                         row_n = ch.id[4:5]
@@ -384,18 +385,14 @@ class DataGrid(GridLayout):
                                 c.state="down"
                             else:    
                                 c.state="normal"
-                        if ('row_'+str(row_n)+'_col_3') == c.id:
-                            if c.state == "normal":
-                                c.state="down"
-                            else:
-                                c.state="normal"
-        def change_on_release(self):
+        def change_on_release_in(self):
             if self.state == "normal":
                 self.state = "down"
             else:
                 self.state = "normal"
-        ##########################################################
         
+        # recorro los datos del movimiento recibido
+        # para ir creando las celdas de la fila
         n = 0
         for item in row_data:
             cell = CLabel(text=('[color=000000]' + str(item) + '[/color]'), 
@@ -403,44 +400,44 @@ class DataGrid(GridLayout):
                                         background_down="background_pressed.png",
                                         halign=row_align[n],
                                         markup=True,
-                                        on_press=partial(change_on_press),
-                                        on_release=partial(change_on_release),
+                                        on_press=partial(change_on_press_in),
+                                        on_release=partial(change_on_release_in),
                                         text_size=(0, None),
                                         size_hint_x=cols_size[n], 
                                         size_hint_y=None,
-                                        height=40,
-                                        id=("row_" + str(counter) + "_col_" + str(n)))
+                                        height=100,
+                                        id=("row_" + str(counter_in) + "_col_" + str(n)))
             cell_width = Window.size[0] * cell.size_hint_x
             cell.text_size=(cell_width - 30, None)
             cell.texture_update()
             self.add_widget(cell)
             n+=1
-        counter += 1
+        counter_in += 1
         
-        
-    def insert(self, txt_producto, txt_cantidad, txt_codigo, ty):
+    # Insertar movimiento de entrada
+    def insert_in(self, txt_producto, txt_cantidad, txt_codigo):
+        txt_codigo = txt_codigo.split('\'')[1]
         try:
             cant = float(txt_cantidad)
             error = False
         except ValueError:
             content = Button(text='ATENCIÓN: Debe ingresar un número como cantidad!')
-            popup = Popup(title='Error', content=content, auto_dismiss=False, size_hint=(None, None), size=(400, 400))
+            popup = Popup(title='Error', content=content,
+                           auto_dismiss=False, size_hint=(None, None), size=(400, 400))
             content.bind(on_press=popup.dismiss)
             popup.open()
             error = True
         if not error:
-            if ty=="in":
-                self.add_row([txt_producto, txt_codigo, cant, "in"], ["center", "center", "center", "center"], [0.5, 0.2, 0.2, 0.2])
-                t = (txt_producto, txt_codigo, cant, "in")
-            elif ty=="out":
-                self.add_row([txt_producto, txt_codigo, cant, "out"], ["center", "center", "center", "center"], [0.5, 0.2, 0.2, 0.2])
-                t = (txt_producto, txt_codigo, cant, "out")
+            self.add_row_in([txt_producto, txt_codigo, cant],
+                             ["center", "center", "center"], [0.4, 0.45, 0.15])
+            t = (txt_producto, txt_codigo, cant, "in")
             cursor.execute("""INSERT INTO products values (?,?,?,?)""", t)
             conn.commit()
         
-    def remove_row(self, **kwargs):
+    # Borrar movimiento de entrada
+    def remove_row_in(self, **kwargs):
         rem_row = ()
-        n_cols = 4
+        n_cols = 3
         childs = self.parent.children
         selected = 0
         for ch in childs:
@@ -448,24 +445,17 @@ class DataGrid(GridLayout):
                 if c.id != "Header_Label":
                     if c.state == "down":
                         self.remove_widget(c)
-#                         print str(c.id) + '   -   ' + str(c.state)
                         selected += 1
                         column = c.text.replace("[color=000000]", "")
                         column = column.replace("[/color]", "")
-#                         print column
                         rem_row = rem_row + (column,)
         if selected == 0:
             for ch in childs:
-#                 count_01 = n_cols
-#                 count_02 = 0
                 count = 0
                 while (count < n_cols):
                     if n_cols != len(ch.children):
                         for c in ch.children:
                             if c.id != "Header_Label":
-#                                 print "Length: " + str(len(ch.children))
-#                                 print "N_cols: " + str(n_cols + 1)
-                         
                                 self.remove_widget(c)
                                 count += 1
                                 break
@@ -474,17 +464,13 @@ class DataGrid(GridLayout):
                     else:
                         break
         else:
-#             print rem_row
             cursor.execute('DELETE FROM products WHERE name=? and barcode=? and cant=? and type=?', rem_row)
             conn.commit()
             
-    def export(self, **kwargs):
-#         host= '192.168.1.53'
+    # Exportar movimiento de entrada
+    def export_in(self, **kwargs):
         protocol= 'xmlrpc'
         port=8069
-#         dbname = 'v6scan'
-#         username = 'admin'
-#         pwd = 'admin'
         
         cursor.execute("""SELECT * FROM connect""")
         connection_data = cursor.fetchone()
@@ -498,22 +484,18 @@ class DataGrid(GridLayout):
             oerp = oerplib.OERP(host, dbname, protocol, port)
             user = oerp.login(username, pwd)
         except:
-#             print "no conecto"
             return False
-#             content = BoxLayout(Label(text='Conexión a Servidor Incorrecta'), Button(text='Volver', on_release=self._popup.dismiss()))
-#             self._popup = Popup(title="load file", content=content, \
-#                 size_hint=(0.9, 0.9))
-#             self._popup.open()
-        #read sqlite database to load products
-        cursor.execute("""SELECT * FROM products""")
+        # leer bbdd para cargar movimientos de entrada
+        cursor.execute("""SELECT * FROM products WHERE type = 'in' """)
         sel = cursor.fetchall()
         for product_sqlite in sel:
-            #search the product in openerp
+            # busco el producto en oerp
             product_args = [('ean13', '=', product_sqlite[1])]
             product_ids = oerp.execute('product.product', 'search', product_args)
             product_id = product_ids[0]
-            product_name = oerp.execute('product.product', 'read', product_id, ['name_template'])
-            #create stock_move
+            product_name = oerp.execute('product.product', 'read', product_id,
+                                         ['name_template'])
+            # creo el stock_move
             move = {
                 'product_id': product_id,
                 'product_qty': product_sqlite[2],
@@ -523,80 +505,22 @@ class DataGrid(GridLayout):
                 'name': product_name['name_template'],
             }
             move_id = oerp.execute('stock.move', 'create', move)
-#             print "new stock_move: %s"%move_id
-            #delete all the incoming moves in sqlite
+            # borro de sqlite todos los movimientos
+            # de entrada que he exportado 
             cursor.execute('DELETE FROM products WHERE type=?', ("in",))
             conn.commit()
-            #delete all the rows in the view
+            # borro todas las filas de la vista
             childs = self.parent.children
             for ch in childs:
                 for c in reversed(ch.children):
                     if c.id != "Header_Label":
-                        self.remove_widget(c)
+                        self.remove_widget(c)  
                         
-                        
-    def export_out(self, **kwargs):
-        # host= 'localhost'
-        protocol= 'xmlrpc'
-        port=8069
-        # dbname = 'v6scan'
-        # username = 'admin'
-        # pwd = 'admin'
-        
-        cursor.execute("""SELECT * FROM connect""")
-        connection_data = cursor.fetchone()
-        
-        host = connection_data[0]
-        dbname = connection_data[1]
-        username = connection_data[2]
-        pwd = connection_data[3]
-        
-        try:  
-            oerp = oerplib.OERP(host, dbname, protocol, port)
-            user = oerp.login(username, pwd)
-        except:
-            return False
-        
-        #read sqlite database to load products
-        cursor.execute("""SELECT * FROM products""")
-        sel = cursor.fetchall()
-        for product_sqlite in sel:
-            #search the product in openerp
-            product_args = [('ean13', '=', product_sqlite[1])]
-            product_ids = oerp.execute('product.product', 'search', product_args)
-            product_id = product_ids[0]
-            product_name = oerp.execute('product.product', 'read', product_id, ['name_template'])
-            #create stock_move
-            move = {
-                'product_id': product_id,
-                'product_qty': product_sqlite[2],
-                'product_uom': 1,
-                'location_id': 12,
-                'location_dest_id': 9,
-                'name': product_name['name_template'],
-            }
-            move_id = oerp.execute('stock.move', 'create', move)
-#             print "new stock_move: %s"%move_id
-            #delete all the incoming moves in sqlite
-            cursor.execute('DELETE FROM products WHERE type=?', ("out",))
-            conn.commit()
-            #delete all the rows in the view
-            childs = self.parent.children
-            for ch in childs:
-                for c in reversed(ch.children):
-                    if c.id != "Header_Label":
-                        self.remove_widget(c)        
-                        
-#     def scan(self, **kwargs):
-#         droid = android.Android()
-#         code = droid.scanBarcode()
-#         self.txt_codigo.text = code
-                        
-        
+    # Inicializar parrilla de movimientos de entrada
     def __init__(self, **kwargs):
-        header_data = ['Producto', 'Código', 'Cantidad', 'Tipo']
-        cols_size = [0.5, 0.2, 0.2, 0.2]
-        super(DataGrid, self).__init__(**kwargs)
+        header_data = ['Producto', 'Código', 'Cantidad']
+        cols_size = [0.4, 0.45, 0.15]
+        super(DataGridIn, self).__init__(**kwargs)
         self.size_hint_y=None
         self.bind(minimum_height=self.setter('height'))
         self.cols = len(header_data)
@@ -611,18 +535,203 @@ class DataGrid(GridLayout):
                 id="Header_Label",
                 size_hint_x=cols_size[n]))
             n+=1
-        #read sqlite database to load products
-        cursor.execute("""SELECT * FROM products""")
+        # leer sqlite para cargar los movimientos de entrada
+        cursor.execute("""SELECT * FROM products WHERE type = 'in' """)
         sel = cursor.fetchall()
-#         print sel
-#         print len(sel)
         self.rows = len(sel) + 1
         for product in sel:
-#             print product
-#             print product[0]
-#             print product[1]
-#             print product[2]
-            self.add_row([product[0], product[1], product[2], product[3]], ["center", "center", "center", "center"], [0.5, 0.2, 0.2, 0.2])
+            self.add_row([product[0], product[1], product[2]],
+                          ["center", "center", "center"], [0.4, 0.45, 0.15])
+
+
+counter_out = 0
+class DataGridOut(GridLayout):
+    # Añadir movimiento de salida
+    def add_row_out(self, row_data, row_align, cols_size, **kwargs):
+        global counter_out
+
+        def change_on_press_out(self):
+            childs = self.parent.children
+            for ch in childs:
+                if ch.id == self.id:
+                    row_n = 0
+                    if len(ch.id) == 11:
+                        row_n = ch.id[4:5]
+                    else:
+                        row_n = ch.id[4:6]
+                    for c in childs:
+                        if ('row_'+str(row_n)+'_col_0') == c.id:
+                            if c.state == "normal":
+                                c.state="down"
+                            else:    
+                                c.state="normal"
+                        if ('row_'+str(row_n)+'_col_1') == c.id:
+                            if c.state == "normal":
+                                c.state="down"
+                            else:    
+                                c.state="normal"
+                        if ('row_'+str(row_n)+'_col_2') == c.id:
+                            if c.state == "normal":
+                                c.state="down"
+                            else:    
+                                c.state="normal"
+        def change_on_release_out(self):
+            if self.state == "normal":
+                self.state = "down"
+            else:
+                self.state = "normal"
+        
+        # recorro los datos del movimiento recibido
+        # para ir creando las celdas de la fila
+        n = 0
+        for item in row_data:
+            cell = CLabel(text=('[color=000000]' + str(item) + '[/color]'), 
+                                        background_normal="background_normal.png",
+                                        background_down="background_pressed.png",
+                                        halign=row_align[n],
+                                        markup=True,
+                                        on_press=partial(change_on_press_out),
+                                        on_release=partial(change_on_release_out),
+                                        text_size=(0, None),
+                                        size_hint_x=cols_size[n], 
+                                        size_hint_y=None,
+                                        height=100,
+                                        id=("row_" + str(counter_out) + "_col_" + str(n)))
+            cell_width = Window.size[0] * cell.size_hint_x
+            cell.text_size=(cell_width - 30, None)
+            cell.texture_update()
+            self.add_widget(cell)
+            n+=1
+        counter_out += 1
+        
+    # Insertar movimiento de salida
+    def insert_out(self, txt_producto, txt_cantidad, txt_codigo):
+        txt_codigo = txt_codigo.split('\'')[1]
+        try:
+            cant = float(txt_cantidad)
+            error = False
+        except ValueError:
+            content = Button(text='ATENCIÓN: Debe ingresar un número como cantidad!')
+            popup = Popup(title='Error', content=content,
+                           auto_dismiss=False, size_hint=(None, None), size=(400, 400))
+            content.bind(on_press=popup.dismiss)
+            popup.open()
+            error = True
+        if not error:
+            self.add_row_out([txt_producto, txt_codigo, cant],
+                              ["center", "center", "center"], [0.4, 0.45, 0.15])
+            t = (txt_producto, txt_codigo, cant, "out")
+            cursor.execute("""INSERT INTO products values (?,?,?,?)""", t)
+            conn.commit()
+        
+    # Borrar movimiento de salida
+    def remove_row_out(self, **kwargs):
+        rem_row = ()
+        n_cols = 3
+        childs = self.parent.children
+        selected = 0
+        for ch in childs:
+            for c in reversed(ch.children):
+                if c.id != "Header_Label":
+                    if c.state == "down":
+                        self.remove_widget(c)
+                        selected += 1
+                        column = c.text.replace("[color=000000]", "")
+                        column = column.replace("[/color]", "")
+                        rem_row = rem_row + (column,)
+        if selected == 0:
+            for ch in childs:
+                count = 0
+                while (count < n_cols):
+                    if n_cols != len(ch.children):
+                        for c in ch.children:
+                            if c.id != "Header_Label":
+                                self.remove_widget(c)
+                                count += 1
+                                break
+                            else:
+                                break
+                    else:
+                        break
+        else:
+            cursor.execute('DELETE FROM products WHERE name=? and barcode=? and cant=? and type=?', rem_row)
+            conn.commit()
+            
+    # Exportar movimiento de salida
+    def export_out(self, **kwargs):
+        protocol= 'xmlrpc'
+        port=8069
+        
+        cursor.execute("""SELECT * FROM connect""")
+        connection_data = cursor.fetchone()
+         
+        host = connection_data[0]
+        dbname = connection_data[1]
+        username = connection_data[2]
+        pwd = connection_data[3]
+        
+        try:  
+            oerp = oerplib.OERP(host, dbname, protocol, port)
+            user = oerp.login(username, pwd)
+        except:
+            return False
+        # leer bbdd para cargar movimientos de salida
+        cursor.execute("""SELECT * FROM products WHERE type = 'out' """)
+        sel = cursor.fetchall()
+        for product_sqlite in sel:
+            # busco el producto en oerp
+            product_args = [('ean13', '=', product_sqlite[1])]
+            product_ids = oerp.execute('product.product', 'search', product_args)
+            product_id = product_ids[0]
+            product_name = oerp.execute('product.product', 'read', product_id,
+                                         ['name_template'])
+            # creo el stock_move
+            move = {
+                'product_id': product_id,
+                'product_qty': product_sqlite[2],
+                'product_uom': 1,
+                'location_id': 12,
+                'location_dest_id': 9,
+                'name': product_name['name_template'],
+            }
+            move_id = oerp.execute('stock.move', 'create', move)
+            # borro de sqlite todos los movimientos
+            # de salida que he exportado 
+            cursor.execute('DELETE FROM products WHERE type=?', ("out",))
+            conn.commit()
+            # borro todas las filas de la vista
+            childs = self.parent.children
+            for ch in childs:
+                for c in reversed(ch.children):
+                    if c.id != "Header_Label":
+                        self.remove_widget(c)        
+                        
+    # Inicializar parrilla de movimientos de salida
+    def __init__(self, **kwargs):
+        header_data = ['Producto', 'Código', 'Cantidad']
+        cols_size = [0.4, 0.45, 0.15]
+        super(DataGridIn, self).__init__(**kwargs)
+        self.size_hint_y=None
+        self.bind(minimum_height=self.setter('height'))
+        self.cols = len(header_data)
+        self.spacing = [2]
+        n = 0
+        for hcell in header_data:
+            header_str = "[b]" + str(hcell) + "[/b]"
+            self.add_widget(HeaderLabel(text=header_str, 
+                markup=True, 
+                size_hint_y=None,
+                height=40,
+                id="Header_Label",
+                size_hint_x=cols_size[n]))
+            n+=1
+        # leer sqlite para cargar los movimientos de salida
+        cursor.execute("""SELECT * FROM products WHERE type = 'out' """)
+        sel = cursor.fetchall()
+        self.rows = len(sel) + 1
+        for product in sel:
+            self.add_row([product[0], product[1], product[2]],
+                          ["center", "center", "center"], [0.4, 0.45, 0.15])
 
 
 class TrazabilidadScreen(Screen):
@@ -643,7 +752,6 @@ class TrazabilidadScreen(Screen):
     
 
 class TrazabilidadApp(App):
-    
     index = NumericProperty(-1)
     current_title = StringProperty()
     screen_names = ListProperty([])
@@ -670,19 +778,18 @@ class TrazabilidadApp(App):
         conn.commit()
 
     def new_code_in(self, text):
-#         android = android.Android()
-#         self.code = android.scanBarcode()
         self.code = text
-        cursor.execute("""INSERT INTO products (name, barcode, cant, type) values ('product', ?, 'none', 'in')""", [self.code])
+        cursor.execute("""INSERT INTO products (name, barcode, cant, type)
+                            values ('product', ?, 'none', 'in')""", [self.code])
         conn.commit()
         
     def new_code_out(self, text):
         self.code = text
-        cursor.execute("""INSERT INTO products (name, barcode, cant, type) values ('product', ?, 'none', 'out')""", [self.code])
+        cursor.execute("""INSERT INTO products (name, barcode, cant, type)
+                            values ('product', ?, 'none', 'out')""", [self.code])
         conn.commit()
         
     def guardar_producto(self, codigo_in, prod_in, cant_in):
-#         print codigo_in
         pass
     
     def build(self):
