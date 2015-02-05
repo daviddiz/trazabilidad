@@ -4,6 +4,7 @@ import os
 import sys
 import sqlite3
 import oerplib
+import datetime
 
 kivy.require('1.8.0')
 from kivy.app import App
@@ -491,21 +492,77 @@ class DataGridIn(GridLayout):
         sel = cursor.fetchall()
         for product_sqlite in sel:
             # busco el producto en oerp
-            product_args = [('ean13', '=', product_sqlite[1])]
+            product_args = [('name_template', '=', product_sqlite[0])]
             product_ids = oerp.execute('product.product', 'search', product_args)
-            product_id = product_ids[0]
-            product_name = oerp.execute('product.product', 'read', product_id,
+            if product_ids:
+                product_id = product_ids[0]
+                product_obj = oerp.execute('product.product', 'read', product_id,
                                          ['name_template'])
-            # creo el stock_move
-            move = {
-                'product_id': product_id,
-                'product_qty': product_sqlite[2],
-                'product_uom': 1,
-                'location_id': 8,
-                'location_dest_id': 12,
-                'name': product_name['name_template'],
-            }
-            move_id = oerp.execute('stock.move', 'create', move)
+                product_name = product_obj['name_template']
+            else:
+                product_name = product_sqlite[0]
+                
+                p_template_vals = {
+                    'supply_method': 'buy',
+                    'standard_price': 1.00,
+                    'mes_type': 'fixed',
+                    'uom_id': 1,
+                    'uom_po_id': 1,
+                    'name': product_name,
+                    'description': product_name,
+                    'description_purchase': product_name,
+                    'description_sale': product_name,
+                    'type': 'consu',
+                    'procure_method': 'make_to_stock',
+                    'categ_id': 1,
+                    'cost_method': 'standard',
+                    'warranty': 0,
+                    'purchase_ok': True,
+                    'company_id': 1,
+                    'rental': False,
+                    'sale_ok': True,
+                    'sale_delay': 7,
+                    'produce_delay': 1,
+                }
+                product_template_id = oerp.execute('product.template', 'create', p_template_vals)
+                 
+                p_product_vals = {
+                    'product_tmpl_id': product_template_id,
+                    'default_code': product_sqlite[1],
+                    'valuation': 'manual_periodic',
+                    'lot_split_type': 'single',
+                    'price_extra': 0.00,
+                    'name_template': product_name,
+                    'active': True,
+                    'price_margin': 1.00,
+                    'track_production': False,
+                    'track_outgoing': False,
+                    'track_incoming': True,
+                }
+                product_id = oerp.execute('product.product', 'create', p_product_vals)
+                
+            # creo el stock_move            
+            datetime_now = datetime.datetime.today()
+            tracking_vals = {
+                     'active': True,
+                     'serial': product_sqlite[1],
+                     'date': datetime_now,
+                     'name': product_name,
+                     }    
+            tracking_id = oerp.execute('stock.tracking', 'create', tracking_vals)     
+ 
+            move_vals = {
+                     'location_id': 8,
+                     'location_dest_id': 12,
+                     'product_id': product_id,
+                     'product_uom': 1,
+                     'product_uos_qty': 1,
+                     'product_qty': product_sqlite[2],
+                     'name': product_name,
+                     'tracking_id': tracking_id,
+                     }    
+            move_id = oerp.execute('stock.move', 'create', move_vals)
+            
             # borro de sqlite todos los movimientos
             # de entrada que he exportado 
             cursor.execute('DELETE FROM products WHERE type=?', ("in",))
@@ -679,23 +736,80 @@ class DataGridOut(GridLayout):
         # leer bbdd para cargar movimientos de salida
         cursor.execute("""SELECT * FROM products WHERE type = 'out' """)
         sel = cursor.fetchall()
+        
         for product_sqlite in sel:
             # busco el producto en oerp
-            product_args = [('ean13', '=', product_sqlite[1])]
+            product_args = [('name_template', '=', product_sqlite[0])]
             product_ids = oerp.execute('product.product', 'search', product_args)
-            product_id = product_ids[0]
-            product_name = oerp.execute('product.product', 'read', product_id,
+            if product_ids:
+                product_id = product_ids[0]
+                product_obj = oerp.execute('product.product', 'read', product_id,
                                          ['name_template'])
-            # creo el stock_move
-            move = {
-                'product_id': product_id,
-                'product_qty': product_sqlite[2],
-                'product_uom': 1,
-                'location_id': 12,
-                'location_dest_id': 9,
-                'name': product_name['name_template'],
-            }
-            move_id = oerp.execute('stock.move', 'create', move)
+                product_name = product_obj['name_template']
+            else:
+                product_name = product_sqlite[0]
+                
+                p_template_vals = {
+                    'supply_method': 'buy',
+                    'standard_price': 1.00,
+                    'mes_type': 'fixed',
+                    'uom_id': 1,
+                    'uom_po_id': 1,
+                    'name': product_name,
+                    'description': product_name,
+                    'description_purchase': product_name,
+                    'description_sale': product_name,
+                    'type': 'consu',
+                    'procure_method': 'make_to_stock',
+                    'categ_id': 1,
+                    'cost_method': 'standard',
+                    'warranty': 0,
+                    'purchase_ok': True,
+                    'company_id': 1,
+                    'rental': False,
+                    'sale_ok': True,
+                    'sale_delay': 7,
+                    'produce_delay': 1,
+                }
+                product_template_id = oerp.execute('product.template', 'create', p_template_vals)
+                 
+                p_product_vals = {
+                    'product_tmpl_id': product_template_id,
+                    'default_code': product_sqlite[1],
+                    'valuation': 'manual_periodic',
+                    'lot_split_type': 'single',
+                    'price_extra': 0.00,
+                    'name_template': product_name,
+                    'active': True,
+                    'price_margin': 1.00,
+                    'track_production': False,
+                    'track_outgoing': False,
+                    'track_incoming': True,
+                }
+                product_id = oerp.execute('product.product', 'create', p_product_vals)
+                
+            # creo el stock_move            
+            datetime_now = datetime.datetime.today()
+            tracking_vals = {
+                     'active': True,
+                     'serial': product_sqlite[1],
+                     'date': datetime_now,
+                     'name': product_name,
+                     }    
+            tracking_id = oerp.execute('stock.tracking', 'create', tracking_vals)     
+ 
+            move_vals = {
+                     'location_id': 12,
+                     'location_dest_id': 9,
+                     'product_id': product_id,
+                     'product_uom': 1,
+                     'product_uos_qty': 1,
+                     'product_qty': product_sqlite[2],
+                     'name': product_name,
+                     'tracking_id': tracking_id,
+                     }    
+            move_id = oerp.execute('stock.move', 'create', move_vals)
+            
             # borro de sqlite todos los movimientos
             # de salida que he exportado 
             cursor.execute('DELETE FROM products WHERE type=?', ("out",))
