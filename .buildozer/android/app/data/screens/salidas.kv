@@ -1,0 +1,94 @@
+TrazabilidadScreen:
+    name: 'Salidas'
+    popup: popup.__self__
+	        
+	FloatLayout:
+		padding: 20
+    	spacing: 10
+		
+		ScrollView:
+			size_hint: .8, 1
+			pos_hint: {'x': .0, 'y': .0}
+		
+			DataGridOut:
+				id: grid_out
+		    	rows: 10
+                	
+		BoxLayout:
+			orientation: 'vertical'
+			id: tr
+			
+			Button:
+				size_hint: .2, .1
+				pos_hint: {'x':.8, 'y':.8}
+				text: 'Añadir'
+				on_release: root.popup.open()
+				
+		    Popup:
+		        id: popup
+		        size_hint: (1, 1)
+		        auto_dismiss: False
+		        on_parent: if self.parent == tr: tr.remove_widget(self)
+		        title: "Añadir movimiento de salida"
+		        content: popupcontent
+		        
+		        BoxLayout:
+		            id: popupcontent
+		            orientation: 'vertical'
+		            
+		        	GridLayout:
+		        		cols: 2
+		        		
+		        		Label:
+		        			text: 'producto'
+		        			id: lbl_producto
+		        			
+		        		TextInput:
+		        			id: txt_producto
+		        			
+		        		Label:
+		        			text: 'cantidad'
+		        			id: lbl_cantidad
+		        			
+		        		TextInput:
+		        			id: txt_cantidad
+		        			multiline: False
+		        			txt: "1"
+		        			
+					    ZbarQrcodeDetector:
+					        id: detector
+					
+					    Label:
+					        text: '\\n'.join(map(repr, detector.symbols))
+					        size_hint_y: None
+					        id: txt_codigo
+					
+					    
+				        Button:
+				            text: 'Escanear Código QR'
+				            on_release: detector.start()
+				        Button:
+				            text: 'Detener Escaneo'
+				            on_release: detector.stop()
+		            
+		            	Button:
+				            text: "Insertar"
+				            on_press: grid_out.insert_out(txt_producto.text, txt_cantidad.text, txt_codigo.text)
+				            on_release: popup.dismiss()
+				            
+				        Button:
+				            text: "Salir"
+				            on_release: popup.dismiss()		            
+		            
+		            
+			Button:
+				size_hint: .2, .1
+				pos_hint: {'x':.8, 'y':.6}
+				text: 'Borrar'
+				on_press: grid_out.remove_row_out()
+				
+			Button:
+				size_hint: .2, .1
+				pos_hint: {'x':.8, 'y':.4}
+				text: 'Exportar'
+				on_press: grid_out.export_out()

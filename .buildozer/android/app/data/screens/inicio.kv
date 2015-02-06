@@ -1,0 +1,24 @@
+TrazabilidadScreen:
+	name: 'Inicio'
+	
+	FloatLayout:
+		padding: 20
+    	spacing: 10
+    	
+		Button:
+			size_hint: .8, .15
+			pos_hint: {'x': .1, 'y': .7}
+	        text: 'Entradas'
+	        on_release: app.go_screen(1)
+	
+		Button:
+			size_hint: .8, .15
+			pos_hint: {'x': .1, 'y': .5}
+			text: 'Salidas'
+			on_release: app.go_screen(2)
+	
+		Button:
+			size_hint: .8, .15
+			pos_hint: {'x': .1, 'y': .3}
+			text: 'Configurar'
+			on_release: app.go_screen(3)
