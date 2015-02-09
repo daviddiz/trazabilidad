@@ -22,3 +22,9 @@ TrazabilidadScreen:
 			pos_hint: {'x': .1, 'y': .3}
 			text: 'Configurar'
 			on_release: app.go_screen(3)
+			
+		Button:
+			size_hint: .8, .15
+			pos_hint: {'x': .1, 'y': .1}
+			text: 'Solicitar una demo de la aplicación'
+			on_release: app.go_demo_webform

@@ -37,6 +37,7 @@ from android.runnable import run_on_ui_thread
 System = autoclass('java.lang.System')
 System.loadLibrary('iconv')
 PythonActivity = autoclass('org.renpy.android.PythonActivity')
+
 Camera = autoclass('android.hardware.Camera')
 ImageScanner = autoclass('net.sourceforge.zbar.ImageScanner')
 Config = autoclass('net.sourceforge.zbar.Config')
@@ -984,6 +985,17 @@ class TrazabilidadApp(App):
         screen = Builder.load_file(self.available_screens[index].lower())
         self.screens[index] = screen
         return screen
+    
+    def go_demo_webform(self):
+        ''' Abrir la web de softic con formulario para pedir demo '''
+        context = autoclass('org.renpy.android.PythonActivity').mActivity
+        Uri = autoclass('android.net.Uri')
+        Intent = autoclass('android.content.Intent')
+        intent = Intent()
+        intent.setAction(Intent.ACTION_VIEW)
+        intent.setData(Uri.parse('http://trazabilidadexplosivos.es/?q=contacto'))
+        currentActivity = cast('android.app.Activity', context)
+        currentActivity.startActivity(intent)
 
 if __name__ == "__main__":
     TrazabilidadApp().run()
