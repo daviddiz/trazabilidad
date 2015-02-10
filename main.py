@@ -5,7 +5,7 @@ import sys
 import sqlite3
 import oerplib
 from oerplib import rpc, error
-import datetime
+from datetime import datetime
 
 kivy.require('1.8.0')
 from kivy.logger import Logger
@@ -545,7 +545,7 @@ class DataGridIn(GridLayout):
                 product_id = oerp.execute('product.product', 'create', p_product_vals)
                 
             # creo el stock_move            
-            datetime_now = datetime.datetime.today()
+            datetime_now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
             tracking_vals = {
                      'active': True,
                      'serial': product_sqlite[1],
@@ -792,7 +792,7 @@ class DataGridOut(GridLayout):
                 product_id = oerp.execute('product.product', 'create', p_product_vals)
                 
             # creo el stock_move            
-            datetime_now = datetime.datetime.today()
+            datetime_now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
             tracking_vals = {
                      'active': True,
                      'serial': product_sqlite[1],
