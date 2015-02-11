@@ -4,7 +4,7 @@ import os
 import sys
 import sqlite3
 import oerplib
-import webbrowser
+# import webbrowser
 from oerplib import rpc, error
 from datetime import datetime
 
@@ -38,6 +38,8 @@ from android.runnable import run_on_ui_thread
 System = autoclass('java.lang.System')
 System.loadLibrary('iconv')
 PythonActivity = autoclass('org.renpy.android.PythonActivity')
+Uri = autoclass('android.net.Uri')
+Intent = autoclass('android.content.Intent')
 
 Camera = autoclass('android.hardware.Camera')
 ImageScanner = autoclass('net.sourceforge.zbar.ImageScanner')
@@ -236,7 +238,8 @@ class ZbarQrcodeDetector(AnchorLayout):
     para detectar el código qr. Cuando lo encuentra,
     se actualiza `symbols`
     '''
-    camera_size = ListProperty([640, 480])
+    #camera_size = ListProperty([640, 480])
+    camera_size = ListProperty([480, 320])
  
     symbols = ListProperty([])
  
@@ -296,6 +299,8 @@ class ZbarQrcodeDetector(AnchorLayout):
                 count=symbol.getCount(),
                 bounds=symbol.getBounds())
             symbols.append(qrcode)
+            self.stop()
+            break
  
         self.symbols = symbols
  
@@ -989,7 +994,12 @@ class TrazabilidadApp(App):
     
     def go_demo_webform(self):
         ''' Abrir la web de softic con formulario para pedir demo '''
-        webbrowser.open("http://trazabilidadexplosivos.es/?q=contacto")
+        #webbrowser.open("http://trazabilidadexplosivos.es/?q=contacto")
+        intent = Intent()
+        intent.setAction(Intent.ACTION_VIEW)
+        intent.setData(Uri.parse("http://trazabilidadexplosivos.es/?q=contacto"))
+        currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
+        currentActivity.startActivity(intent)
 
 if __name__ == "__main__":
     TrazabilidadApp().run()
