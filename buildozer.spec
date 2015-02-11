@@ -29,7 +29,7 @@ source.exclude_dirs = tests, bin
 #version.filename = %(source.dir)s/main.py
 
 # (str) Application versioning (method 2)
-version = 2.4.3
+version = 2.5
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
@@ -39,10 +39,10 @@ requirements = sqlite3,kivy,pygments,pygame,numpy,oerplib,openssl
 #garden_requirements =
 
 # (str) Presplash of the application
-#presplash.filename = %(source.dir)s/data/presplash.png
+presplash.filename = %(source.dir)s/data/trazabilidad-explosivos-ico.png
 
 # (str) Icon of the application
-#icon.filename = %(source.dir)s/data/icon.png
+icon.filename = %(source.dir)s/data/trazabilidad-explosivos-ico.png
 
 # (str) Supported orientation (one of landscape, portrait or all)
 orientation = landscape
