@@ -4,6 +4,7 @@ import os
 import sys
 import sqlite3
 import oerplib
+import webbrowser
 from oerplib import rpc, error
 from datetime import datetime
 
@@ -988,14 +989,7 @@ class TrazabilidadApp(App):
     
     def go_demo_webform(self):
         ''' Abrir la web de softic con formulario para pedir demo '''
-        context = autoclass('org.renpy.android.PythonActivity').mActivity
-        Uri = autoclass('android.net.Uri')
-        Intent = autoclass('android.content.Intent')
-        intent = Intent()
-        intent.setAction(Intent.ACTION_VIEW)
-        intent.setData(Uri.parse('http://trazabilidadexplosivos.es/?q=contacto'))
-        currentActivity = cast('android.app.Activity', context)
-        currentActivity.startActivity(intent)
+        webbrowser.open("http://trazabilidadexplosivos.es/?q=contacto")
 
 if __name__ == "__main__":
     TrazabilidadApp().run()
