@@ -29,7 +29,7 @@ source.exclude_dirs = tests, bin
 #version.filename = %(source.dir)s/main.py
 
 # (str) Application versioning (method 2)
-version = 2.6
+version = 2.7.23
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
@@ -93,11 +93,10 @@ android.p4a_dir = /home/ddiz/Descargas/python-for-android
 # down the build process. Allows wildcards matching, for example:
 # OUYA-ODK/libs/*.jar
 #android.add_jars = foo.jar,bar.jar,path/to/more/*.jar
-android.add_jars = libs/android/zbar.jar
 
 # (list) List of Java files to add to the android project (can be java or a
 # directory containing the files)
-#android.add_src =
+android.add_src = src/com/google/zxing/integration/android/IntentIntegrator.java,src/com/google/zxing/integration/android/IntentResult.java
 
 # (str) python-for-android branch to use, if not master, useful to try
 # not yet merged features.
@@ -118,7 +117,7 @@ android.add_jars = libs/android/zbar.jar
 #android.add_libs_armeabi_v7a = libs/android-v7/*.so
 #android.add_libs_x86 = libs/android-x86/*.so
 #android.add_libs_mips = libs/android-mips/*.so
-android.add_libs_armeabi = libs/android/*.so
+#android.add_libs_armeabi = libs/android/*.so
 
 # (bool) Indicate whether the screen should stay on
 # Don't forget to add the WAKE_LOCK permission if you set this to True

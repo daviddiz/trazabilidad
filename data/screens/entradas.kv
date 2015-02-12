@@ -36,41 +36,25 @@ TrazabilidadScreen:
 		            id: popupcontent
 		            orientation: 'vertical'
 		            
-		        	GridLayout:
+		        	PopGridLayout:
+		        		id: pop_gridlayout
 		        		cols: 2
 		        		
 		        		Label:
-		        			text: 'producto'
-		        			id: lbl_producto
+		        			text: 'codigo'
+		        			id: lbl_codigo
 		        			
 		        		TextInput:
-		        			id: txt_producto
-		        			
-		        		Label:
-		        			text: 'cantidad'
-		        			id: lbl_cantidad
-		        			
-		        		TextInput:
-		        			id: txt_cantidad
-		        			multiline: False
-		        			txt: "1"
-	        			
-					    ZbarQrcodeDetector:
-					        id: detector
-					
-					    Label:
-					        text: '\\n'.join(map(repr, detector.symbols))
-					        size_hint_y: None
-					        id: txt_codigo
+		        			id: txt_codigo
 					
 					    
 				        Button:
-				            text: 'Escanear Código QR'
-				            on_release: detector.start()
+				            text: 'Escanear Código'
+				            on_release: pop_gridlayout.scan_in()	
 		            
 		            	Button:
 				            text: "Insertar"
-				            on_press: grid_in.insert_in(txt_producto.text, txt_cantidad.text, txt_codigo.text)
+				            on_press: grid_in.insert_in(txt_codigo.text)
 				            on_release: popup.dismiss()
 				            
 				        Button:

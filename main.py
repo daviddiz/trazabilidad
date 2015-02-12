@@ -33,295 +33,299 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Color, Line
 from jnius import autoclass, PythonJavaClass, java_method, cast
 from android.runnable import run_on_ui_thread
+from android import activity
  
 # precarga de clases java
-System = autoclass('java.lang.System')
-System.loadLibrary('iconv')
+#System = autoclass('java.lang.System')
+#System.loadLibrary('iconv')
 PythonActivity = autoclass('org.renpy.android.PythonActivity')
 Uri = autoclass('android.net.Uri')
 Intent = autoclass('android.content.Intent')
 
 Camera = autoclass('android.hardware.Camera')
-ImageScanner = autoclass('net.sourceforge.zbar.ImageScanner')
-Config = autoclass('net.sourceforge.zbar.Config')
+#ImageScanner = autoclass('net.sourceforge.zbar.ImageScanner')
+#Config = autoclass('net.sourceforge.zbar.Config')
 SurfaceView = autoclass('android.view.SurfaceView')
 LayoutParams = autoclass('android.view.ViewGroup$LayoutParams')
-Image = autoclass('net.sourceforge.zbar.Image')
+#Image = autoclass('net.sourceforge.zbar.Image')
 ImageFormat = autoclass('android.graphics.ImageFormat')
 LinearLayout = autoclass('android.widget.LinearLayout')
-Symbol = autoclass('net.sourceforge.zbar.Symbol')
+#Symbol = autoclass('net.sourceforge.zbar.Symbol')
+
+IntentIntegrator = autoclass('com.google.zxing.integration.android.IntentIntegrator')
+IntentResult = autoclass('com.google.zxing.integration.android.IntentResult')
  
  
-class PreviewCallback(PythonJavaClass):
-    '''Interfaz para recuperar el marco de vista previa
-     de la cámara Android
-    '''
-    __javainterfaces__ = ('android.hardware.Camera$PreviewCallback', )
- 
-    def __init__(self, callback):
-        super(PreviewCallback, self).__init__()
-        self.callback = callback
- 
-    @java_method('([BLandroid/hardware/Camera;)V')
-    def onPreviewFrame(self, data, camera):
-        self.callback(camera, data)
- 
- 
-class SurfaceHolderCallback(PythonJavaClass):
-    '''Interfaz para saber exactamente cuando la superficie
-     utilizada para la cámara Android se ha creado y modificado.
-    '''
- 
-    __javainterfaces__ = ('android.view.SurfaceHolder$Callback', )
- 
-    def __init__(self, callback):
-        super(SurfaceHolderCallback, self).__init__()
-        self.callback = callback
-  
-    @java_method('(Landroid/view/SurfaceHolder;III)V')
-    def surfaceChanged(self, surface, fmt, width, height):
-        self.callback(fmt, width, height)
- 
-    @java_method('(Landroid/view/SurfaceHolder;)V')
-    def surfaceCreated(self, surface):
-        pass
-  
-    @java_method('(Landroid/view/SurfaceHolder;)V')
-    def surfaceDestroyed(self, surface):
-        pass
- 
- 
-class AndroidWidgetHolder(Widget):
-    '''Actúa como un marcador de posición para un widget Android.
-     Se añadirá / quitará  automáticamente la vista android
-     dependiendo si el widget de vista se activa o no. 
-     La vista android actuará como una superposición, 
-     por lo que cualquier instrucción gráfica en esta área
-     será cubierta por la superposición.
-    '''
- 
-    view = ObjectProperty(allownone=True)
-    '''Debe ser una vista Android
-    '''
- 
-    def __init__(self, **kwargs):
-        self._old_view = None
-        self._window = Window
-        kwargs['size_hint'] = (None, None)
-        super(AndroidWidgetHolder, self).__init__(**kwargs)
- 
-    def on_view(self, instance, view):
-        if self._old_view is not None:
-            layout = cast(LinearLayout, self._old_view.getParent())
-            layout.removeView(self._old_view)
-            self._old_view = None
- 
-        if view is None:
-            return
- 
-        activity = PythonActivity.mActivity
-        activity.addContentView(view, LayoutParams(*self.size))
-        view.setZOrderOnTop(True)
-        view.setX(self.x)
-        view.setY(self._window.height - self.y - self.height)
-        self._old_view = view
- 
-    def on_size(self, instance, size):
-        if self.view:
-            params = self.view.getLayoutParams()
-            params.width = self.width
-            params.height = self.height
-            self.view.setLayoutParams(params)
-            self.view.setY(self._window.height - self.y - self.height)
- 
-    def on_x(self, instance, x):
-        if self.view:
-            self.view.setX(x)
- 
-    def on_y(self, instance, y):
-        if self.view:
-            self.view.setY(self._window.height - self.y - self.height)
- 
- 
-class AndroidCamera(Widget):
-    '''Widget para controlar la cámara Android.
-    '''
- 
-    index = NumericProperty(0)
- 
-    __events__ = ('on_preview_frame', )
- 
-    def __init__(self, **kwargs):
-        self._holder = None
-        self._android_camera = None
-        super(AndroidCamera, self).__init__(**kwargs)
-        self._holder = AndroidWidgetHolder(size=self.size, pos=self.pos)
-        self.add_widget(self._holder)
- 
-    @run_on_ui_thread
-    def stop(self):
-        if self._android_camera is None:
-            return
-        self._android_camera.setPreviewCallback(None)
-        self._android_camera.release()
-        self._android_camera = None
-        self._holder.view = None
- 
-    @run_on_ui_thread
-    def start(self):
-        if self._android_camera is not None:
-            return
- 
-        self._android_camera = Camera.open(self.index)
- 
-        # crear una superficie falsa para cargar la previewCallback.
-        self._android_surface = SurfaceView(PythonActivity.mActivity)
-        surface_holder = self._android_surface.getHolder()
- 
-        # crear nuestra propia superficie de soporte para llamar
-        # correctamente al siguiente método
-        # cuando la superficie esté lista
-        self._android_surface_cb = SurfaceHolderCallback(self._on_surface_changed)
-        surface_holder.addCallback(self._android_surface_cb)
- 
-        # adjuntar la superficie android al widget soporte
-        self._holder.view = self._android_surface
- 
-    def _on_surface_changed(self, fmt, width, height):
-        # internamente, se llama cuando la superficie android
-        # (SurfaceView) está preparada
-        # ARREGLAR si el tamaño no lo soporta la cámara va a fallar
-        params = self._android_camera.getParameters()
-        params.setPreviewSize(width, height)
-        self._android_camera.setParameters(params)
- 
-        # ahora que ya sé el tamaño de la cámara,
-        # crearé dos buffers para acelerar el resultado
-        # (usaré el Callback buffer tal y como está descrito en la
-        # documentación de la cámara android)
-        # también reduce la colección GC
-        bpp = ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8.
-        buf = '\x00' * int(width * height * bpp)
-        self._android_camera.addCallbackBuffer(buf)
-        self._android_camera.addCallbackBuffer(buf)
- 
-        # crear un PreviewCallback para obtener el
-        # onPreviewFrame en python
-        self._previewCallback = PreviewCallback(self._on_preview_frame)
- 
-        # conectar todo y empezar a previsualizar
-        self._android_camera.setPreviewCallbackWithBuffer(self._previewCallback);
-        self._android_camera.setPreviewDisplay(self._android_surface.getHolder())
-        self._android_camera.startPreview();
- 
-    def _on_preview_frame(self, camera, data):
-        # internamente, se llama desde la PreviewCallback
-        # cuando el onPreviewFrame es recibido
-        self.dispatch('on_preview_frame', camera, data)
-        # reintroduce los datos del buffer en la cola
-        self._android_camera.addCallbackBuffer(data)
- 
-    def on_preview_frame(self, camera, data):
-        pass
- 
-    def on_size(self, instance, size):
-        if self._holder:
-            self._holder.size = size
- 
-    def on_pos(self, instance, pos):
-        if self._holder:
-            self._holder.pos = pos
- 
- 
-class ZbarQrcodeDetector(AnchorLayout):
-    '''Widget que utiliza la cámara Android y ZBar 
-    para detectar el código qr. Cuando lo encuentra,
-    se actualiza `symbols`
-    '''
-    #camera_size = ListProperty([640, 480])
-    camera_size = ListProperty([480, 320])
- 
-    symbols = ListProperty([])
- 
-    # no puede funcionar ahora, debido a la superposición.
-    show_bounds = BooleanProperty(False)
- 
-    Qrcode = namedtuple('Qrcode',
-            ['type', 'data', 'bounds', 'quality', 'count'])
- 
-    def __init__(self, **kwargs):
-        super(ZbarQrcodeDetector, self).__init__(**kwargs)
-        self._camera = AndroidCamera(
-                size=self.camera_size,
-                size_hint=(None, None))
-        self._camera.bind(on_preview_frame=self._detect_qrcode_frame)
-        self.add_widget(self._camera)
- 
-        # crear un escaner y usarlo para detectar el código qr
-        self._scanner = ImageScanner()
-        self._scanner.setConfig(0, Config.ENABLE, 0)
-        self._scanner.setConfig(Symbol.QRCODE, Config.ENABLE, 1)
-        self._scanner.setConfig(0, Config.X_DENSITY, 3)
-        self._scanner.setConfig(0, Config.Y_DENSITY, 3)
- 
-    def start(self):
-        self._camera.start()
- 
-    def stop(self):
-        self._camera.stop()
- 
-    def _detect_qrcode_frame(self, instance, camera, data):
-        # la imagen que obtenemos desde la cámara usa el formato NV21
-        # zbar sólo acepta imágenes Y800/GREY, así que primero hago 
-        # la conversión,
-        # después comienzo la detección en la imagen
-        parameters = camera.getParameters()
-        size = parameters.getPreviewSize()
-        barcode = Image(size.width, size.height, 'NV21')
-        barcode.setData(data)
-        barcode = barcode.convert('Y800')
- 
-        result = self._scanner.scanImage(barcode)
- 
-        if result == 0:
-            self.symbols = []
-            return
- 
-        # we detected qrcode! extraerlo y enviarlo
-        symbols = []
-        it = barcode.getSymbols().iterator()
-        while it.hasNext():
-            symbol = it.next()
-            qrcode = ZbarQrcodeDetector.Qrcode(
-                type=symbol.getType(),
-                data=symbol.getData(),
-                quality=symbol.getQuality(),
-                count=symbol.getCount(),
-                bounds=symbol.getBounds())
-            symbols.append(qrcode)
-            self.stop()
-            break
- 
-        self.symbols = symbols
- 
-    '''
-    # no puede funcionar ahora, debido a la superposición.
-    def on_symbols(self, instance, value):
-        if self.show_bounds:
-            self.update_bounds()
- 
-    def update_bounds(self):
-        self.canvas.after.remove_group('bounds')
-        if not self.symbols:
-            return
-        with self.canvas.after:
-            Color(1, 0, 0, group='bounds')
-            for symbol in self.symbols:
-                x, y, w, h = symbol.bounds
-                x = self._camera.right - x - w
-                y = self._camera.top - y - h
-                Line(rectangle=[x, y, w, h], group='bounds')
-    '''
+# class PreviewCallback(PythonJavaClass):
+#     '''Interfaz para recuperar el marco de vista previa
+#      de la cámara Android
+#     '''
+#     __javainterfaces__ = ('android.hardware.Camera$PreviewCallback', )
+#  
+#     def __init__(self, callback):
+#         super(PreviewCallback, self).__init__()
+#         self.callback = callback
+#  
+#     @java_method('([BLandroid/hardware/Camera;)V')
+#     def onPreviewFrame(self, data, camera):
+#         self.callback(camera, data)
+#  
+#  
+# class SurfaceHolderCallback(PythonJavaClass):
+#     '''Interfaz para saber exactamente cuando la superficie
+#      utilizada para la cámara Android se ha creado y modificado.
+#     '''
+#  
+#     __javainterfaces__ = ('android.view.SurfaceHolder$Callback', )
+#  
+#     def __init__(self, callback):
+#         super(SurfaceHolderCallback, self).__init__()
+#         self.callback = callback
+#   
+#     @java_method('(Landroid/view/SurfaceHolder;III)V')
+#     def surfaceChanged(self, surface, fmt, width, height):
+#         self.callback(fmt, width, height)
+#  
+#     @java_method('(Landroid/view/SurfaceHolder;)V')
+#     def surfaceCreated(self, surface):
+#         pass
+#   
+#     @java_method('(Landroid/view/SurfaceHolder;)V')
+#     def surfaceDestroyed(self, surface):
+#         pass
+#  
+#  
+# class AndroidWidgetHolder(Widget):
+#     '''Actúa como un marcador de posición para un widget Android.
+#      Se añadirá / quitará  automáticamente la vista android
+#      dependiendo si el widget de vista se activa o no. 
+#      La vista android actuará como una superposición, 
+#      por lo que cualquier instrucción gráfica en esta área
+#      será cubierta por la superposición.
+#     '''
+#  
+#     view = ObjectProperty(allownone=True)
+#     '''Debe ser una vista Android
+#     '''
+#  
+#     def __init__(self, **kwargs):
+#         self._old_view = None
+#         self._window = Window
+#         kwargs['size_hint'] = (None, None)
+#         super(AndroidWidgetHolder, self).__init__(**kwargs)
+#  
+#     def on_view(self, instance, view):
+#         if self._old_view is not None:
+#             layout = cast(LinearLayout, self._old_view.getParent())
+#             layout.removeView(self._old_view)
+#             self._old_view = None
+#  
+#         if view is None:
+#             return
+#  
+#         activity = PythonActivity.mActivity
+#         activity.addContentView(view, LayoutParams(*self.size))
+#         view.setZOrderOnTop(True)
+#         view.setX(self.x)
+#         view.setY(self._window.height - self.y - self.height)
+#         self._old_view = view
+#  
+#     def on_size(self, instance, size):
+#         if self.view:
+#             params = self.view.getLayoutParams()
+#             params.width = self.width
+#             params.height = self.height
+#             self.view.setLayoutParams(params)
+#             self.view.setY(self._window.height - self.y - self.height)
+#  
+#     def on_x(self, instance, x):
+#         if self.view:
+#             self.view.setX(x)
+#  
+#     def on_y(self, instance, y):
+#         if self.view:
+#             self.view.setY(self._window.height - self.y - self.height)
+#  
+#  
+# class AndroidCamera(Widget):
+#     '''Widget para controlar la cámara Android.
+#     '''
+#  
+#     index = NumericProperty(0)
+#  
+#     __events__ = ('on_preview_frame', )
+#  
+#     def __init__(self, **kwargs):
+#         self._holder = None
+#         self._android_camera = None
+#         super(AndroidCamera, self).__init__(**kwargs)
+#         self._holder = AndroidWidgetHolder(size=self.size, pos=self.pos)
+#         self.add_widget(self._holder)
+#  
+#     @run_on_ui_thread
+#     def stop(self):
+#         if self._android_camera is None:
+#             return
+#         self._android_camera.setPreviewCallback(None)
+#         self._android_camera.release()
+#         self._android_camera = None
+#         self._holder.view = None
+#  
+#     @run_on_ui_thread
+#     def start(self):
+#         if self._android_camera is not None:
+#             return
+#  
+#         self._android_camera = Camera.open(self.index)
+#  
+#         # crear una superficie falsa para cargar la previewCallback.
+#         self._android_surface = SurfaceView(PythonActivity.mActivity)
+#         surface_holder = self._android_surface.getHolder()
+#  
+#         # crear nuestra propia superficie de soporte para llamar
+#         # correctamente al siguiente método
+#         # cuando la superficie esté lista
+#         self._android_surface_cb = SurfaceHolderCallback(self._on_surface_changed)
+#         surface_holder.addCallback(self._android_surface_cb)
+#  
+#         # adjuntar la superficie android al widget soporte
+#         self._holder.view = self._android_surface
+#  
+#     def _on_surface_changed(self, fmt, width, height):
+#         # internamente, se llama cuando la superficie android
+#         # (SurfaceView) está preparada
+#         # ARREGLAR si el tamaño no lo soporta la cámara va a fallar
+#         params = self._android_camera.getParameters()
+#         params.setPreviewSize(width, height)
+#         self._android_camera.setParameters(params)
+#  
+#         # ahora que ya sé el tamaño de la cámara,
+#         # crearé dos buffers para acelerar el resultado
+#         # (usaré el Callback buffer tal y como está descrito en la
+#         # documentación de la cámara android)
+#         # también reduce la colección GC
+#         bpp = ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8.
+#         buf = '\x00' * int(width * height * bpp)
+#         self._android_camera.addCallbackBuffer(buf)
+#         self._android_camera.addCallbackBuffer(buf)
+#  
+#         # crear un PreviewCallback para obtener el
+#         # onPreviewFrame en python
+#         self._previewCallback = PreviewCallback(self._on_preview_frame)
+#  
+#         # conectar todo y empezar a previsualizar
+#         self._android_camera.setPreviewCallbackWithBuffer(self._previewCallback);
+#         self._android_camera.setPreviewDisplay(self._android_surface.getHolder())
+#         self._android_camera.startPreview();
+#  
+#     def _on_preview_frame(self, camera, data):
+#         # internamente, se llama desde la PreviewCallback
+#         # cuando el onPreviewFrame es recibido
+#         self.dispatch('on_preview_frame', camera, data)
+#         # reintroduce los datos del buffer en la cola
+#         self._android_camera.addCallbackBuffer(data)
+#  
+#     def on_preview_frame(self, camera, data):
+#         pass
+#  
+#     def on_size(self, instance, size):
+#         if self._holder:
+#             self._holder.size = size
+#  
+#     def on_pos(self, instance, pos):
+#         if self._holder:
+#             self._holder.pos = pos
+#  
+#  
+# class ZbarQrcodeDetector(AnchorLayout):
+#     '''Widget que utiliza la cámara Android y ZBar 
+#     para detectar el código qr. Cuando lo encuentra,
+#     se actualiza `symbols`
+#     '''
+#     #camera_size = ListProperty([640, 480])
+#     camera_size = ListProperty([480, 320])
+#  
+#     symbols = ListProperty([])
+#  
+#     # no puede funcionar ahora, debido a la superposición.
+#     show_bounds = BooleanProperty(False)
+#  
+#     Qrcode = namedtuple('Qrcode',
+#             ['type', 'data', 'bounds', 'quality', 'count'])
+#  
+#     def __init__(self, **kwargs):
+#         super(ZbarQrcodeDetector, self).__init__(**kwargs)
+#         self._camera = AndroidCamera(
+#                 size=self.camera_size,
+#                 size_hint=(None, None))
+#         self._camera.bind(on_preview_frame=self._detect_qrcode_frame)
+#         self.add_widget(self._camera)
+#  
+#         # crear un escaner y usarlo para detectar el código qr
+#         self._scanner = ImageScanner()
+#         self._scanner.setConfig(0, Config.ENABLE, 0)
+#         self._scanner.setConfig(Symbol.QRCODE, Config.ENABLE, 1)
+#         self._scanner.setConfig(0, Config.X_DENSITY, 3)
+#         self._scanner.setConfig(0, Config.Y_DENSITY, 3)
+#  
+#     def start(self):
+#         self._camera.start()
+#  
+#     def stop(self):
+#         self._camera.stop()
+#  
+#     def _detect_qrcode_frame(self, instance, camera, data):
+#         # la imagen que obtenemos desde la cámara usa el formato NV21
+#         # zbar sólo acepta imágenes Y800/GREY, así que primero hago 
+#         # la conversión,
+#         # después comienzo la detección en la imagen
+#         parameters = camera.getParameters()
+#         size = parameters.getPreviewSize()
+#         barcode = Image(size.width, size.height, 'NV21')
+#         barcode.setData(data)
+#         barcode = barcode.convert('Y800')
+#  
+#         result = self._scanner.scanImage(barcode)
+#  
+#         if result == 0:
+#             self.symbols = []
+#             return
+#  
+#         # we detected qrcode! extraerlo y enviarlo
+#         symbols = []
+#         it = barcode.getSymbols().iterator()
+#         while it.hasNext():
+#             symbol = it.next()
+#             qrcode = ZbarQrcodeDetector.Qrcode(
+#                 type=symbol.getType(),
+#                 data=symbol.getData(),
+#                 quality=symbol.getQuality(),
+#                 count=symbol.getCount(),
+#                 bounds=symbol.getBounds())
+#             symbols.append(qrcode)
+#             self.stop()
+#             break
+#  
+#         self.symbols = symbols
+#  
+#     '''
+#     # no puede funcionar ahora, debido a la superposición.
+#     def on_symbols(self, instance, value):
+#         if self.show_bounds:
+#             self.update_bounds()
+#  
+#     def update_bounds(self):
+#         self.canvas.after.remove_group('bounds')
+#         if not self.symbols:
+#             return
+#         with self.canvas.after:
+#             Color(1, 0, 0, group='bounds')
+#             for symbol in self.symbols:
+#                 x, y, w, h = symbol.bounds
+#                 x = self._camera.right - x - w
+#                 y = self._camera.top - y - h
+#                 Line(rectangle=[x, y, w, h], group='bounds')
+#     '''
 
 # compruebo si existe la base de datos y si no existe, la creo
  
@@ -359,49 +363,72 @@ Builder.load_string('''
 '''
 )
 
+class CLabelin(ToggleButton):
+    bgcolor = ListProperty([1])
+
+class HeaderLabelin(Label):
+    bgcolor = ListProperty([1])
+
 class CLabel(ToggleButton):
     bgcolor = ListProperty([1,1,1])
 
 class HeaderLabel(Label):
     bgcolor = ListProperty([0.611,0.411,0.276])
     
+class PopGridLayout(GridLayout):
+    @run_on_ui_thread
+    def on_activity_result(self, requestCode, resultCode, data):
+        Logger.debug('requestCode1: <%s>' % requestCode)
+        Logger.debug('resultCode1: <%s>' % resultCode)
+        r1 = data.getData()
+        Logger.debug('data1: <%s>' % r1)
+        scanResult = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+        Logger.debug('requestCode2: <%s>' % requestCode)
+        Logger.debug('resultCode2: <%s>' % resultCode)
+        r2 = data.getData()
+        Logger.debug('data2: <%s>' % r2)
+        Logger.debug('scanResult: <%s>' % scanResult)
+        Logger.debug('scanResult obj completo: <%s>' % scanResult.__dict__)
+        if scanResult:
+#             Logger.debug('scanResult.contents: <%s>' % scanResult.contents)
+#             Logger.debug('scanResult.formatName: <%s>' % scanResult.formatName)
+#             Logger.debug('scanResult.rawBytes: <%s>' % scanResult.rawBytes)
+#             Logger.debug('scanResult.orientation: <%s>' % scanResult.orientation)
+#             Logger.debug('scanResult.errorCorrectionLevel: <%s>' % scanResult.errorCorrectionLevel)
+            #code = resultCode
+            #self.add_row_in(["producto escaneado", "resultCode", "1"],
+            #                 ["center", "center", "center"], [0.4, 0.45, 0.15])
+            contents = data.getStringExtra("SCAN_RESULT")
+            self.children[3].text = contents[12:28]+" "+contents[37:48]
+                        
+    @run_on_ui_thread
+    def scan_in(self, **kwargs):
+        activity.bind(on_activity_result=self.on_activity_result)
+        currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
+        Logger.debug('justo antes de llamar a barcode scanner')
+#         currentActivity.ActivityResultListener()
+        IntentIntegrator(currentActivity).initiateScan()
+        
+#         intent = Intent()
+#         intent.setAction(Intent.ACTION_PICK)
+#         intent.setType("image/*")
+#         PythonActivity.mActivity.startActivityForResult(intent, 0x123)
+        
+#         Intent = autoclass('android.content.Intent')
+#         intent = Intent()
+#         intent.setAction(CaptureActivity.onCreate(Bundle))
+#         PythonActivity.mActivity.startActivityForResult(intent, 1)
+
+    def __init__(self, **kwargs):
+        super(PopGridLayout, self).__init__(**kwargs)
+#         currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
+#         currentActivity.bind(on_activity_result=self.on_activity_result)
+    
 counter_in = 0
 class DataGridIn(GridLayout):
     # Añadir movimiento de entrada
     def add_row_in(self, row_data, row_align, cols_size, **kwargs):
-        global counter_in
-
-        def change_on_press_in(self):
-            childs = self.parent.children
-            for ch in childs:
-                if ch.id == self.id:
-                    row_n = 0
-                    if len(ch.id) == 11:
-                        row_n = ch.id[4:5]
-                    else:
-                        row_n = ch.id[4:6]
-                    for c in childs:
-                        if ('row_'+str(row_n)+'_col_0') == c.id:
-                            if c.state == "normal":
-                                c.state="down"
-                            else:    
-                                c.state="normal"
-                        if ('row_'+str(row_n)+'_col_1') == c.id:
-                            if c.state == "normal":
-                                c.state="down"
-                            else:    
-                                c.state="normal"
-                        if ('row_'+str(row_n)+'_col_2') == c.id:
-                            if c.state == "normal":
-                                c.state="down"
-                            else:    
-                                c.state="normal"
-        def change_on_release_in(self):
-            if self.state == "normal":
-                self.state = "down"
-            else:
-                self.state = "normal"
-        
+        global counter_in        
         # recorro los datos del movimiento recibido
         # para ir creando las celdas de la fila
         n = 0
@@ -411,8 +438,6 @@ class DataGridIn(GridLayout):
                                         background_down="background_pressed.png",
                                         halign=row_align[n],
                                         markup=True,
-                                        on_press=partial(change_on_press_in),
-                                        on_release=partial(change_on_release_in),
                                         text_size=(0, None),
                                         size_hint_x=cols_size[n], 
                                         size_hint_y=None,
@@ -426,29 +451,16 @@ class DataGridIn(GridLayout):
         counter_in += 1
         
     # Insertar movimiento de entrada
-    def insert_in(self, txt_producto, txt_cantidad, txt_codigo):
-        txt_codigo = txt_codigo.split('\'')[1]
-        try:
-            cant = float(txt_cantidad)
-            error = False
-        except ValueError:
-            content = Button(text='ATENCIÓN: Debe ingresar un número como cantidad!')
-            popup = Popup(title='Error', content=content,
-                           auto_dismiss=False, size_hint=(None, None), size=(400, 400))
-            content.bind(on_press=popup.dismiss)
-            popup.open()
-            error = True
-        if not error:
-            self.add_row_in([txt_producto, txt_codigo, cant],
-                             ["center", "center", "center"], [0.4, 0.45, 0.15])
-            t = (txt_producto, txt_codigo, cant, "in")
-            cursor.execute("""INSERT INTO products values (?,?,?,?)""", t)
-            conn.commit()
+    def insert_in(self, txt_codigo):
+        self.add_row_in([txt_codigo], ["center"], [0.95])
+        t = (None, txt_codigo, None, "in")
+        cursor.execute("""INSERT INTO products values (?,?,?,?)""", t)
+        conn.commit()
         
     # Borrar movimiento de entrada
     def remove_row_in(self, **kwargs):
         rem_row = ()
-        n_cols = 3
+        n_cols = 1
         childs = self.parent.children
         selected = 0
         for ch in childs:
@@ -500,77 +512,81 @@ class DataGridIn(GridLayout):
         cursor.execute("""SELECT * FROM products WHERE type = 'in' """)
         sel = cursor.fetchall()
         for product_sqlite in sel:
+            #llamo a la función que dará de alta los nuevos movimientos
+            #de entrada directamente en openerp
+            move_id = oerp.execute('stock.move', 'add_move_in_from_app', product_sqlite[1])
+            
             # busco el producto en oerp
-            product_args = [('name_template', '=', product_sqlite[0])]
-            product_ids = oerp.execute('product.product', 'search', product_args)
-            if product_ids:
-                product_id = product_ids[0]
-                product_obj = oerp.execute('product.product', 'read', product_id,
-                                         ['name_template'])
-                product_name = product_obj['name_template']
-            else:
-                product_name = product_sqlite[0]
-                
-                p_template_vals = {
-                    'supply_method': 'buy',
-                    'standard_price': 1.00,
-                    'mes_type': 'fixed',
-                    'uom_id': 1,
-                    'uom_po_id': 1,
-                    'name': product_name,
-                    'description': product_name,
-                    'description_purchase': product_name,
-                    'description_sale': product_name,
-                    'type': 'consu',
-                    'procure_method': 'make_to_stock',
-                    'categ_id': 1,
-                    'cost_method': 'standard',
-                    'warranty': 0,
-                    'purchase_ok': True,
-                    'company_id': 1,
-                    'rental': False,
-                    'sale_ok': True,
-                    'sale_delay': 7,
-                    'produce_delay': 1,
-                }
-                product_template_id = oerp.execute('product.template', 'create', p_template_vals)
-                 
-                p_product_vals = {
-                    'product_tmpl_id': product_template_id,
-                    'default_code': product_sqlite[1],
-                    'valuation': 'manual_periodic',
-                    'lot_split_type': 'single',
-                    'price_extra': 0.00,
-                    'name_template': product_name,
-                    'active': True,
-                    'price_margin': 1.00,
-                    'track_production': False,
-                    'track_outgoing': False,
-                    'track_incoming': True,
-                }
-                product_id = oerp.execute('product.product', 'create', p_product_vals)
-                
-            # creo el stock_move            
-            datetime_now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            tracking_vals = {
-                     'active': True,
-                     'serial': product_sqlite[1],
-                     'date': datetime_now,
-                     'name': product_name,
-                     }    
-            tracking_id = oerp.execute('stock.tracking', 'create', tracking_vals)     
- 
-            move_vals = {
-                     'location_id': 8,
-                     'location_dest_id': 12,
-                     'product_id': product_id,
-                     'product_uom': 1,
-                     'product_uos_qty': 1,
-                     'product_qty': product_sqlite[2],
-                     'name': product_name,
-                     'tracking_id': tracking_id,
-                     }    
-            move_id = oerp.execute('stock.move', 'create', move_vals)
+#             product_args = [('name_template', '=', product_sqlite[0])]
+#             product_ids = oerp.execute('product.product', 'search', product_args)
+#             if product_ids:
+#                 product_id = product_ids[0]
+#                 product_obj = oerp.execute('product.product', 'read', product_id,
+#                                          ['name_template'])
+#                 product_name = product_obj['name_template']
+#             else:
+#                 product_name = product_sqlite[0]
+#                 
+#                 p_template_vals = {
+#                     'supply_method': 'buy',
+#                     'standard_price': 1.00,
+#                     'mes_type': 'fixed',
+#                     'uom_id': 1,
+#                     'uom_po_id': 1,
+#                     'name': product_name,
+#                     'description': product_name,
+#                     'description_purchase': product_name,
+#                     'description_sale': product_name,
+#                     'type': 'consu',
+#                     'procure_method': 'make_to_stock',
+#                     'categ_id': 1,
+#                     'cost_method': 'standard',
+#                     'warranty': 0,
+#                     'purchase_ok': True,
+#                     'company_id': 1,
+#                     'rental': False,
+#                     'sale_ok': True,
+#                     'sale_delay': 7,
+#                     'produce_delay': 1,
+#                 }
+#                 product_template_id = oerp.execute('product.template', 'create', p_template_vals)
+#                  
+#                 p_product_vals = {
+#                     'product_tmpl_id': product_template_id,
+#                     'default_code': product_sqlite[1],
+#                     'valuation': 'manual_periodic',
+#                     'lot_split_type': 'single',
+#                     'price_extra': 0.00,
+#                     'name_template': product_name,
+#                     'active': True,
+#                     'price_margin': 1.00,
+#                     'track_production': False,
+#                     'track_outgoing': False,
+#                     'track_incoming': True,
+#                 }
+#                 product_id = oerp.execute('product.product', 'create', p_product_vals)
+#                 
+#             # creo el stock_move            
+#             datetime_now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+#             tracking_vals = {
+#                      'active': True,
+#                      'serial': product_sqlite[1],
+#                      'date': datetime_now,
+#                      'name': product_name,
+#                      }    
+#             tracking_id = oerp.execute('stock.tracking', 'create', tracking_vals)     
+#  
+#             move_vals = {
+#                      'location_id': 8,
+#                      'location_dest_id': 12,
+#                      'product_id': product_id,
+#                      'product_uom': 1,
+#                      'product_uos_qty': 1,
+#                      'product_qty': product_sqlite[2],
+#                      'name': product_name,
+#                      'tracking_id': tracking_id,
+#                      }    
+#             move_id = oerp.execute('stock.move', 'create', move_vals)
             
             # borro de sqlite todos los movimientos
             # de entrada que he exportado 
@@ -582,11 +598,11 @@ class DataGridIn(GridLayout):
                 for c in reversed(ch.children):
                     if c.id != "Header_Label":
                         self.remove_widget(c)  
-                        
+                                            
     # Inicializar parrilla de movimientos de entrada
     def __init__(self, **kwargs):
-        header_data = ['Producto', 'Código', 'Cantidad']
-        cols_size = [0.4, 0.45, 0.15]
+        header_data = ['Código']
+        cols_size = [0.95]
         super(DataGridIn, self).__init__(**kwargs)
         self.size_hint_y=None
         self.bind(minimum_height=self.setter('height'))
@@ -607,8 +623,7 @@ class DataGridIn(GridLayout):
         sel = cursor.fetchall()
         self.rows = len(sel) + 1
         for product in sel:
-            self.add_row_in([product[0], product[1], product[2]],
-                          ["center", "center", "center"], [0.4, 0.45, 0.15])
+            self.add_row_in([product[1]], ["center"], [0.95])
 
 
 counter_out = 0
